@@ -14,7 +14,8 @@
     "verify:r1": "tsx scripts/verify-r1-concurrency.ts",
     "verify:r2": "tsx scripts/verify-r2-authorization.ts",
     "verify:r3": "tsx scripts/verify-r3-notifications.ts",
-    "verify:all": "npm run verify:r1 && npm run verify:r2 && npm run verify:r3"
+    "verify:all": "npm run verify:r1 && npm run verify:r2 && npm run verify:r3",
+    "notifications:run": "tsx scripts/run-notifications.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
