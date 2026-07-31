@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum WorkspaceRole {
+  OWNER
+  MEMBER
+  VIEWER
+}
+
+enum ItemStatus {
+  QUEUED
+  CLAIMED
+  RESOLVED
+}
+
+enum ItemPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id                    String                @id @default(cuid())
+  name                  String
+  email                 String                @unique
+  memberships           WorkspaceMembership[]
+  claimedItems          Item[]                @relation("ItemClaimant")
+  resolvedItems         Item[]                @relation("ItemResolver")
+  notificationAttempts  NotificationAttempt[] @relation("NotificationResolver")
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+}
+
+model Workspace {
+  id          String                @id @default(cuid())
+  name        String
+  slug        String                @unique
+  memberships WorkspaceMembership[]
+  items       Item[]
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+}
+
+model WorkspaceMembership {
+  id          String        @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        WorkspaceRole
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId, role])
+  @@index([userId])
+}
+
+model Item {
+  id                    String                @id @default(cuid())
+  workspaceId           String
+  title                 String
+  description           String
+  status                ItemStatus            @default(QUEUED)
+  priority              ItemPriority          @default(NORMAL)
+  claimedById           String?
+  claimedAt             DateTime?
+  claimExpiresAt        DateTime?
+  resolvedById          String?
+  resolvedAt            DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  workspace             Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  claimedBy             User?                 @relation("ItemClaimant", fields: [claimedById], references: [id], onDelete: SetNull)
+  resolvedBy            User?                 @relation("ItemResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  notificationAttempts  NotificationAttempt[]
+
+  @@index([workspaceId, status, priority, createdAt, id])
+  @@index([workspaceId, status, createdAt, id])
+  @@index([claimedById])
+  @@index([claimExpiresAt])
+}
+
+model NotificationAttempt {
+  id             String             @id @default(cuid())
+  itemId         String
+  resolverId     String
+  status         NotificationStatus @default(PENDING)
+  attemptCount   Int                @default(0)
+  lastError      String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  processedAt    DateTime?
+  item           Item               @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  resolver       User               @relation("NotificationResolver", fields: [resolverId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([itemId])
+}
