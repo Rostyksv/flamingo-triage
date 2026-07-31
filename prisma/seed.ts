@@ -40,12 +40,12 @@ const workspaces: WorkspaceSeed[] = [
 const users: UserSeed[] = [
   {
     email: "avery.owner@example.test",
-    name: "Avery Owner",
+    name: "Avery Chen",
     memberships: { support: WorkspaceRole.OWNER, billing: WorkspaceRole.MEMBER },
   },
   {
     email: "blair.member@example.test",
-    name: "Blair Member",
+    name: "Blair Kim",
     memberships: {
       support: WorkspaceRole.MEMBER,
       billing: WorkspaceRole.VIEWER,
@@ -54,17 +54,17 @@ const users: UserSeed[] = [
   },
   {
     email: "casey.viewer@example.test",
-    name: "Casey Viewer",
+    name: "Casey Park",
     memberships: { support: WorkspaceRole.VIEWER, engineering: WorkspaceRole.MEMBER },
   },
   {
     email: "devon.member@example.test",
-    name: "Devon Member",
+    name: "Devon Singh",
     memberships: { support: WorkspaceRole.MEMBER, billing: WorkspaceRole.MEMBER },
   },
   {
     email: "riley.owner@example.test",
-    name: "Riley Owner",
+    name: "Riley Brown",
     memberships: { billing: WorkspaceRole.OWNER, engineering: WorkspaceRole.VIEWER },
   },
 ];
