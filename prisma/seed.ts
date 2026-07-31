@@ -32,40 +32,40 @@ type UserSeed = {
 };
 
 const workspaces: WorkspaceSeed[] = [
-  { slug: "northstar", name: "Northstar Support" },
-  { slug: "atlas", name: "Atlas Trust" },
-  { slug: "harbor", name: "Harbor Ops" },
+  { slug: "support", name: "Support Team" },
+  { slug: "billing", name: "Billing Team" },
+  { slug: "engineering", name: "Engineering" },
 ];
 
 const users: UserSeed[] = [
   {
     email: "avery.owner@example.test",
     name: "Avery Owner",
-    memberships: { northstar: WorkspaceRole.OWNER, atlas: WorkspaceRole.MEMBER },
+    memberships: { support: WorkspaceRole.OWNER, billing: WorkspaceRole.MEMBER },
   },
   {
     email: "blair.member@example.test",
     name: "Blair Member",
     memberships: {
-      northstar: WorkspaceRole.MEMBER,
-      atlas: WorkspaceRole.VIEWER,
-      harbor: WorkspaceRole.OWNER,
+      support: WorkspaceRole.MEMBER,
+      billing: WorkspaceRole.VIEWER,
+      engineering: WorkspaceRole.OWNER,
     },
   },
   {
     email: "casey.viewer@example.test",
     name: "Casey Viewer",
-    memberships: { northstar: WorkspaceRole.VIEWER, harbor: WorkspaceRole.MEMBER },
+    memberships: { support: WorkspaceRole.VIEWER, engineering: WorkspaceRole.MEMBER },
   },
   {
     email: "devon.member@example.test",
     name: "Devon Member",
-    memberships: { northstar: WorkspaceRole.MEMBER, atlas: WorkspaceRole.MEMBER },
+    memberships: { support: WorkspaceRole.MEMBER, billing: WorkspaceRole.MEMBER },
   },
   {
     email: "riley.owner@example.test",
     name: "Riley Owner",
-    memberships: { atlas: WorkspaceRole.OWNER, harbor: WorkspaceRole.VIEWER },
+    memberships: { billing: WorkspaceRole.OWNER, engineering: WorkspaceRole.VIEWER },
   },
 ];
 
