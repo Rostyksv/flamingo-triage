@@ -1,5 +1,6 @@
 import "server-only";
 
+import { ItemStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 export type ClaimResult = ClaimSuccess | ClaimConflict;
@@ -45,23 +46,15 @@ type ReleaseConflict = {
   itemStatus: string;
 };
 
-/**
- * Atomically claim an item. Uses a conditional UPDATE inside a transaction
- * so that only one concurrent caller can claim a QUEUED item.
- *
- * The WHERE clause includes `status: "QUEUED"` — the first transaction to
- * execute the UPDATE succeeds; subsequent callers get count=0 and receive the
- * current holder via a follow-up SELECT.
- */
 export async function claimItem(itemId: string, userId: string): Promise<ClaimResult> {
   const result = await prisma.$transaction(async (tx) => {
     const updated = await tx.item.updateMany({
       where: {
         id: itemId,
-        status: "QUEUED",
+        status: ItemStatus.QUEUED,
       },
       data: {
-        status: "CLAIMED",
+        status: ItemStatus.CLAIMED,
         claimedById: userId,
         claimedAt: new Date(),
         claimExpiresAt: new Date(Date.now() + 30 * 60 * 1000),
@@ -87,7 +80,7 @@ export async function claimItem(itemId: string, userId: string): Promise<ClaimRe
         };
       }
 
-      if (item.status === "RESOLVED") {
+      if (item.status === ItemStatus.RESOLVED) {
         return {
           success: false as const,
           reason: "already_resolved" as const,
@@ -128,9 +121,6 @@ export async function claimItem(itemId: string, userId: string): Promise<ClaimRe
   return result;
 }
 
-/**
- * Release an item back to QUEUED. Only the current claimant can release.
- */
 export async function releaseItem(itemId: string, userId: string): Promise<ReleaseResult> {
   const result = await prisma.$transaction(async (tx) => {
     const item = await tx.item.findUnique({
@@ -152,7 +142,7 @@ export async function releaseItem(itemId: string, userId: string): Promise<Relea
       };
     }
 
-    if (item.status === "RESOLVED") {
+    if (item.status === ItemStatus.RESOLVED) {
       return {
         success: false as const,
         reason: "already_resolved" as const,
@@ -161,7 +151,7 @@ export async function releaseItem(itemId: string, userId: string): Promise<Relea
       };
     }
 
-    if (item.status !== "CLAIMED") {
+    if (item.status !== ItemStatus.CLAIMED) {
       return {
         success: false as const,
         reason: "not_claimed" as const,
@@ -182,7 +172,7 @@ export async function releaseItem(itemId: string, userId: string): Promise<Relea
     const updated = await tx.item.update({
       where: { id: itemId },
       data: {
-        status: "QUEUED",
+        status: ItemStatus.QUEUED,
         claimedById: null,
         claimedAt: null,
         claimExpiresAt: null,

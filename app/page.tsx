@@ -2,6 +2,7 @@ import { UserSelector } from "@/components/user-selector";
 import { QueueTable } from "@/components/queue-table";
 import { getCurrentUser, listSeededUsers } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ItemStatus } from "@prisma/client";
 import { loadMoreItems } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ async function QueueDataLoader() {
   const items = await prisma.item.findMany({
     where: {
       workspaceId: { in: workspaceIds },
-      status: { not: "RESOLVED" },
+      status: { not: ItemStatus.RESOLVED },
     },
     include: {
       claimedBy: { select: { id: true, name: true, email: true } },
@@ -56,7 +57,7 @@ async function QueueDataLoader() {
   const totalCount = await prisma.item.count({
     where: {
       workspaceId: { in: workspaceIds },
-      status: { not: "RESOLVED" },
+      status: { not: ItemStatus.RESOLVED },
     },
   });
 
