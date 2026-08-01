@@ -66,7 +66,8 @@ async function QueueDataLoader() {
         currentUserName={user.name}
         hasMore={items.length < totalCount}
         loadMoreAction={loadMoreItems}
-        label={`Queue (${totalCount})`}
+        label="Queue"
+        initialTotalCount={totalCount}
       />
     </div>
   );

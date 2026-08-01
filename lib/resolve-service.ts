@@ -26,7 +26,11 @@ type ResolveSuccess = {
 
 type ResolveConflict = {
   success: false;
-  reason: "not_claimed" | "not_your_claim" | "already_resolved";
+  reason:
+    | "not_claimed"
+    | "not_your_claim"
+    | "already_resolved"
+    | "claim_expired";
   currentHolder: { id: string; name: string; email: string } | null;
   resolvedBy: { id: string; name: string; email: string } | null;
   itemStatus: string;
@@ -37,64 +41,89 @@ export async function resolveItem(
   userId: string,
 ): Promise<ResolveResult> {
   const result = await prisma.$transaction(async (tx) => {
-    const item = await tx.item.findUnique({
-      where: { id: itemId },
-      select: {
-        id: true,
-        status: true,
-        claimedById: true,
-        claimedBy: { select: { id: true, name: true, email: true } },
-        resolvedBy: { select: { id: true, name: true, email: true } },
+    const updated = await tx.item.updateMany({
+      where: {
+        id: itemId,
+        status: ItemStatus.CLAIMED,
+        claimedById: userId,
+        claimExpiresAt: { gt: new Date() },
       },
-    });
-
-    if (!item) {
-      return {
-        success: false as const,
-        reason: "not_claimed" as const,
-        currentHolder: null,
-        resolvedBy: null,
-        itemStatus: "unknown",
-      };
-    }
-
-    if (item.status === ItemStatus.RESOLVED) {
-      return {
-        success: false as const,
-        reason: "already_resolved" as const,
-        currentHolder: item.claimedBy,
-        resolvedBy: item.resolvedBy,
-        itemStatus: item.status,
-      };
-    }
-
-    if (item.status !== ItemStatus.CLAIMED) {
-      return {
-        success: false as const,
-        reason: "not_claimed" as const,
-        currentHolder: null,
-        resolvedBy: null,
-        itemStatus: item.status,
-      };
-    }
-
-    if (item.claimedById !== userId) {
-      return {
-        success: false as const,
-        reason: "not_your_claim" as const,
-        currentHolder: item.claimedBy,
-        resolvedBy: null,
-        itemStatus: item.status,
-      };
-    }
-
-    const resolved = await tx.item.update({
-      where: { id: itemId },
       data: {
         status: ItemStatus.RESOLVED,
         resolvedById: userId,
         resolvedAt: new Date(),
       },
+    });
+
+    if (updated.count === 0) {
+      const item = await tx.item.findUnique({
+        where: { id: itemId },
+        select: {
+          id: true,
+          status: true,
+          claimedById: true,
+          claimExpiresAt: true,
+          claimedBy: { select: { id: true, name: true, email: true } },
+          resolvedBy: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      if (!item) {
+        return {
+          success: false as const,
+          reason: "not_claimed" as const,
+          currentHolder: null,
+          resolvedBy: null,
+          itemStatus: "unknown",
+        };
+      }
+
+      if (item.status === ItemStatus.RESOLVED) {
+        return {
+          success: false as const,
+          reason: "already_resolved" as const,
+          currentHolder: item.claimedBy,
+          resolvedBy: item.resolvedBy,
+          itemStatus: item.status,
+        };
+      }
+
+      if (item.status === ItemStatus.CLAIMED && item.claimedById !== userId) {
+        return {
+          success: false as const,
+          reason: "not_your_claim" as const,
+          currentHolder: item.claimedBy,
+          resolvedBy: null,
+          itemStatus: item.status,
+        };
+      }
+
+      if (
+        item.status === ItemStatus.CLAIMED &&
+        item.claimedById === userId &&
+        item.claimExpiresAt &&
+        item.claimExpiresAt <= new Date()
+      ) {
+        return {
+          success: false as const,
+          reason: "claim_expired" as const,
+          currentHolder: null,
+          resolvedBy: null,
+          itemStatus: item.status,
+        };
+      }
+
+      return {
+        success: false as const,
+        reason: "not_claimed" as const,
+        currentHolder: null,
+        resolvedBy: null,
+        itemStatus: item.status,
+      };
+    }
+
+    const resolved = await tx.item.findUniqueOrThrow({
+      where: { id: itemId },
       select: {
         id: true,
         title: true,

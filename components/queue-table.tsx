@@ -13,6 +13,7 @@ type Props = {
   hasMore: boolean;
   loadMoreAction: (cursorCreatedAt: string, cursorId: string) => Promise<ItemRecord[]>;
   label: string;
+  initialTotalCount: number;
 };
 
 export function QueueTable({
@@ -22,8 +23,10 @@ export function QueueTable({
   hasMore: initialHasMore,
   loadMoreAction,
   label,
+  initialTotalCount,
 }: Props) {
   const [items, setItems] = useState(initialItems);
+  const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pendingActions, setPendingActions] = useState<Map<string, string>>(new Map());
@@ -116,6 +119,7 @@ export function QueueTable({
           setItems((prev) =>
             prev.filter((it) => it.id !== itemId),
           );
+          setTotalCount((prev) => prev - 1);
           toast.success("Resolved — removed from queue");
         }
       } catch {
@@ -152,7 +156,7 @@ export function QueueTable({
     return (
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-          {label}
+          {label} ({totalCount})
         </div>
         <div className="p-8 text-center text-sm text-slate-400">
           No items
@@ -164,7 +168,7 @@ export function QueueTable({
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-        {label}
+        {label} ({totalCount})
       </div>
 
       <div className="overflow-x-auto">
