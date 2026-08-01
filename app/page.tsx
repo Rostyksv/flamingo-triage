@@ -1,25 +1,11 @@
 import { UserSelector } from "@/components/user-selector";
 import { QueueTable } from "@/components/queue-table";
 import { getCurrentUser, listSeededUsers } from "@/lib/auth";
-import { prisma } from "@/lib/db";
-import { ItemStatus } from "@prisma/client";
+import { findWorkspaceItemsCursor } from "@/lib/items";
+import type { ItemRecord } from "@/lib/items";
 import { loadMoreItems } from "./actions";
 
 export const dynamic = "force-dynamic";
-
-type SerializedQueueItem = {
-  id: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  claimedById: string | null;
-  claimedAt: string | null;
-  resolvedAt: string | null;
-  workspaceId: string;
-  claimedBy: { id: string; name: string; email: string } | null;
-  workspace: { id: string; name: string; slug: string };
-};
 
 async function QueueDataLoader() {
   const user = await getCurrentUser();
@@ -41,43 +27,23 @@ async function QueueDataLoader() {
 
   const workspaceIds = workspaces.map((w) => w.id);
 
-  const items = await prisma.item.findMany({
-    where: {
-      workspaceId: { in: workspaceIds },
-      status: { not: ItemStatus.RESOLVED },
-    },
-    include: {
-      claimedBy: { select: { id: true, name: true, email: true } },
-      workspace: { select: { id: true, name: true, slug: true } },
-    },
-    orderBy: { createdAt: "asc" },
-    take: 50,
+  const items = await findWorkspaceItemsCursor({
+    workspaceIds,
+    limit: 50,
   });
 
+  // Count from Prisma (separate query — fine for initial page load)
+  const { prisma } = await import("@/lib/db");
   const totalCount = await prisma.item.count({
     where: {
       workspaceId: { in: workspaceIds },
-      status: { not: ItemStatus.RESOLVED },
+      status: { not: "RESOLVED" },
     },
   });
 
   const canMutate = workspaces.some(
     (w) => w.role === "OWNER" || w.role === "MEMBER",
   );
-
-  const serialized: SerializedQueueItem[] = items.map((item) => ({
-    id: item.id,
-    title: item.title,
-    description: item.description,
-    status: item.status,
-    priority: item.priority,
-    claimedById: item.claimedById,
-    claimedAt: item.claimedAt?.toISOString() ?? null,
-    resolvedAt: item.resolvedAt?.toISOString() ?? null,
-    workspaceId: item.workspaceId,
-    claimedBy: item.claimedBy,
-    workspace: item.workspace,
-  }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -95,7 +61,7 @@ async function QueueDataLoader() {
         ))}
       </div>
       <QueueTable
-        initialItems={serialized}
+        initialItems={items}
         canMutate={canMutate}
         currentUserName={user.name}
         hasMore={items.length < totalCount}

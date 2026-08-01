@@ -1,35 +1,17 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 import { ItemStatusBadge } from "./item-status";
 import { Button } from "./button";
-
-type QueueItem = {
-  id: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  claimedById: string | null;
-  claimedAt: string | null;
-  resolvedAt: string | null;
-  workspaceId: string;
-  claimedBy: { id: string; name: string; email: string } | null;
-  workspace: { id: string; name: string; slug: string };
-  notificationStatus?: string;
-};
-
-type ActionMessage = {
-  type: "success" | "error" | "info";
-  text: string;
-} | null;
+import type { ItemRecord } from "@/lib/items";
 
 type Props = {
-  initialItems: QueueItem[];
+  initialItems: ItemRecord[];
   canMutate: boolean;
   currentUserName: string;
   hasMore: boolean;
-  loadMoreAction: (offset: number) => Promise<QueueItem[]>;
+  loadMoreAction: (cursorCreatedAt: string, cursorId: string) => Promise<ItemRecord[]>;
   label: string;
 };
 
@@ -44,12 +26,10 @@ export function QueueTable({
   const [items, setItems] = useState(initialItems);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [actionMessage, setActionMessage] = useState<ActionMessage>(null);
   const [pendingActions, setPendingActions] = useState<Map<string, string>>(new Map());
 
   const doAction = useCallback(
     async (itemId: string, action: "claim" | "release" | "resolve") => {
-      setActionMessage(null);
       setPendingActions((prev) => new Map(prev).set(itemId, action));
 
       try {
@@ -61,7 +41,24 @@ export function QueueTable({
         const body = await res.json();
 
         if (!res.ok) {
-          if (res.status === 409 && action === "claim" && body.currentHolder) {
+          if (res.status === 409 && body.reason === "already_resolved") {
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === itemId
+                  ? {
+                      ...it,
+                      status: "RESOLVED",
+                      claimedBy: body.currentHolder ?? it.claimedBy,
+                      resolvedBy: body.resolvedBy ?? null,
+                      resolvedById: body.resolvedBy?.id ?? null,
+                    }
+                  : it,
+              ),
+            );
+            toast.info(
+              `Already resolved by ${body.resolvedBy?.name ?? "another user"}`,
+            );
+          } else if (res.status === 409 && action === "claim" && body.currentHolder) {
             setItems((prev) =>
               prev.map((it) =>
                 it.id === itemId
@@ -74,15 +71,11 @@ export function QueueTable({
                   : it,
               ),
             );
-            setActionMessage({
-              type: "info",
-              text: `Already claimed by ${body.currentHolder?.name ?? "another user"}`,
-            });
+            toast.info(
+              `Already claimed by ${body.currentHolder?.name ?? "another user"}`,
+            );
           } else {
-            setActionMessage({
-              type: "error",
-              text: body.reason ?? body.error ?? `${action} failed`,
-            });
+            toast.error(body.reason ?? body.error ?? `${action} failed`);
           }
           return;
         }
@@ -104,7 +97,7 @@ export function QueueTable({
                 : it,
             ),
           );
-          setActionMessage({ type: "success", text: "Claimed" });
+          toast.success("Claimed");
         } else if (action === "release") {
           setItems((prev) =>
             prev.map((it) =>
@@ -118,18 +111,15 @@ export function QueueTable({
                 : it,
             ),
           );
-          setActionMessage({ type: "success", text: "Released" });
+          toast.success("Released");
         } else if (action === "resolve") {
           setItems((prev) =>
             prev.filter((it) => it.id !== itemId),
           );
-          setActionMessage({
-            type: "success",
-            text: "Resolved — removed from queue",
-          });
+          toast.success("Resolved — removed from queue");
         }
       } catch {
-        setActionMessage({ type: "error", text: "Network error" });
+        toast.error("Network error");
       } finally {
         setPendingActions((prev) => {
           const next = new Map(prev);
@@ -142,16 +132,21 @@ export function QueueTable({
   );
 
   const loadMore = useCallback(async () => {
+    if (items.length === 0) return;
+    const last = items[items.length - 1];
     setLoadingMore(true);
     try {
-      const newItems = await loadMoreAction(items.length);
+      const newItems = await loadMoreAction(
+        last.createdAt ?? "",
+        last.id,
+      );
       setItems((prev) => [...prev, ...newItems]);
       if (newItems.length < 50) setHasMore(false);
     } catch {
     } finally {
       setLoadingMore(false);
     }
-  }, [loadMoreAction, items.length]);
+  }, [loadMoreAction, items]);
 
   if (items.length === 0) {
     return (
@@ -171,26 +166,6 @@ export function QueueTable({
       <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </div>
-
-      {actionMessage && (
-        <div
-          className={`border-b px-4 py-2.5 text-sm ${
-            actionMessage.type === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : actionMessage.type === "info"
-                ? "border-sky-200 bg-sky-50 text-sky-800"
-                : "border-red-200 bg-red-50 text-red-800"
-          }`}
-        >
-          {actionMessage.text}
-          <button
-            className="ml-3 text-xs underline cursor-pointer"
-            onClick={() => setActionMessage(null)}
-          >
-            dismiss
-          </button>
-        </div>
-      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
@@ -245,11 +220,6 @@ export function QueueTable({
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap align-middle text-center">
                     <ItemStatusBadge status={item.status} />
-                    {item.notificationStatus && (
-                      <span className="hidden sm:inline ml-1.5 text-xs text-slate-400">
-                        notify: {item.notificationStatus.toLowerCase()}
-                      </span>
-                    )}
                   </td>
                   <td className="px-3 py-2 hidden md:table-cell text-xs text-slate-600">
                     {item.claimedBy?.name ?? "—"}

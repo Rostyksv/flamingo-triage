@@ -28,6 +28,7 @@ type ResolveConflict = {
   success: false;
   reason: "not_claimed" | "not_your_claim" | "already_resolved";
   currentHolder: { id: string; name: string; email: string } | null;
+  resolvedBy: { id: string; name: string; email: string } | null;
   itemStatus: string;
 };
 
@@ -43,6 +44,7 @@ export async function resolveItem(
         status: true,
         claimedById: true,
         claimedBy: { select: { id: true, name: true, email: true } },
+        resolvedBy: { select: { id: true, name: true, email: true } },
       },
     });
 
@@ -51,6 +53,7 @@ export async function resolveItem(
         success: false as const,
         reason: "not_claimed" as const,
         currentHolder: null,
+        resolvedBy: null,
         itemStatus: "unknown",
       };
     }
@@ -59,7 +62,8 @@ export async function resolveItem(
       return {
         success: false as const,
         reason: "already_resolved" as const,
-        currentHolder: null,
+        currentHolder: item.claimedBy,
+        resolvedBy: item.resolvedBy,
         itemStatus: item.status,
       };
     }
@@ -69,6 +73,7 @@ export async function resolveItem(
         success: false as const,
         reason: "not_claimed" as const,
         currentHolder: null,
+        resolvedBy: null,
         itemStatus: item.status,
       };
     }
@@ -78,6 +83,7 @@ export async function resolveItem(
         success: false as const,
         reason: "not_your_claim" as const,
         currentHolder: item.claimedBy,
+        resolvedBy: null,
         itemStatus: item.status,
       };
     }

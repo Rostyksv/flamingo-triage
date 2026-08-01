@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { clearSessionCookie, setSessionCookie, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { findWorkspaceItemsCursor } from "@/lib/items";
+import type { ItemRecord } from "@/lib/items";
 
 export async function selectSeededUser(formData: FormData) {
   const userId = formData.get("userId");
@@ -29,19 +31,10 @@ export async function signOut() {
   redirect("/");
 }
 
-export async function loadMoreItems(offset: number = 0): Promise<{
-  id: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  claimedById: string | null;
-  claimedAt: string | null;
-  resolvedAt: string | null;
-  workspaceId: string;
-  claimedBy: { id: string; name: string; email: string } | null;
-  workspace: { id: string; name: string; slug: string };
-}[]> {
+export async function loadMoreItems(
+  cursorCreatedAt?: string,
+  cursorId?: string,
+): Promise<ItemRecord[]> {
   "use server";
 
   const user = await getCurrentUser();
@@ -52,33 +45,12 @@ export async function loadMoreItems(offset: number = 0): Promise<{
 
   const workspaceIds = user.memberships.map((m) => m.workspaceId);
 
-  const items = await prisma.item.findMany({
-    where: {
-      workspaceId: { in: workspaceIds },
-      status: { not: "RESOLVED" },
-    },
-    include: {
-      claimedBy: { select: { id: true, name: true, email: true } },
-      workspace: { select: { id: true, name: true, slug: true } },
-    },
-    orderBy: [
-      { createdAt: "asc" },
-    ],
-    skip: offset,
-    take: 50,
+  return findWorkspaceItemsCursor({
+    workspaceIds,
+    cursor:
+      cursorCreatedAt && cursorId
+        ? { createdAt: cursorCreatedAt, id: cursorId }
+        : undefined,
+    limit: 50,
   });
-
-  return items.map((item) => ({
-    id: item.id,
-    title: item.title,
-    description: item.description,
-    status: item.status,
-    priority: item.priority,
-    claimedById: item.claimedById,
-    claimedAt: item.claimedAt?.toISOString() ?? null,
-    resolvedAt: item.resolvedAt?.toISOString() ?? null,
-    workspaceId: item.workspaceId,
-    claimedBy: item.claimedBy,
-    workspace: item.workspace,
-  }));
 }

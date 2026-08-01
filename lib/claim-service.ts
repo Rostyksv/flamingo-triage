@@ -25,6 +25,7 @@ type ClaimConflict = {
   success: false;
   reason: "already_claimed" | "already_resolved" | "not_queued";
   currentHolder: { id: string; name: string; email: string } | null;
+  resolvedBy: { id: string; name: string; email: string } | null;
   itemStatus: string;
 };
 
@@ -68,6 +69,7 @@ export async function claimItem(itemId: string, userId: string): Promise<ClaimRe
           id: true,
           status: true,
           claimedBy: { select: { id: true, name: true, email: true } },
+          resolvedBy: { select: { id: true, name: true, email: true } },
         },
       });
 
@@ -76,6 +78,7 @@ export async function claimItem(itemId: string, userId: string): Promise<ClaimRe
           success: false as const,
           reason: "not_queued" as const,
           currentHolder: null,
+          resolvedBy: null,
           itemStatus: "unknown",
         };
       }
@@ -84,7 +87,8 @@ export async function claimItem(itemId: string, userId: string): Promise<ClaimRe
         return {
           success: false as const,
           reason: "already_resolved" as const,
-          currentHolder: null,
+          currentHolder: item.claimedBy,
+          resolvedBy: item.resolvedBy,
           itemStatus: item.status,
         };
       }
@@ -93,6 +97,7 @@ export async function claimItem(itemId: string, userId: string): Promise<ClaimRe
         success: false as const,
         reason: "already_claimed" as const,
         currentHolder: item.claimedBy,
+        resolvedBy: null,
         itemStatus: item.status,
       };
     }
@@ -130,6 +135,7 @@ export async function releaseItem(itemId: string, userId: string): Promise<Relea
         status: true,
         claimedById: true,
         claimedBy: { select: { id: true, name: true, email: true } },
+        resolvedBy: { select: { id: true, name: true, email: true } },
       },
     });
 
@@ -138,6 +144,7 @@ export async function releaseItem(itemId: string, userId: string): Promise<Relea
         success: false as const,
         reason: "not_claimed" as const,
         currentHolder: null,
+        resolvedBy: null,
         itemStatus: "unknown",
       };
     }
@@ -146,7 +153,8 @@ export async function releaseItem(itemId: string, userId: string): Promise<Relea
       return {
         success: false as const,
         reason: "already_resolved" as const,
-        currentHolder: null,
+        currentHolder: item.claimedBy,
+        resolvedBy: item.resolvedBy,
         itemStatus: item.status,
       };
     }
@@ -156,6 +164,7 @@ export async function releaseItem(itemId: string, userId: string): Promise<Relea
         success: false as const,
         reason: "not_claimed" as const,
         currentHolder: null,
+        resolvedBy: null,
         itemStatus: item.status,
       };
     }
@@ -165,6 +174,7 @@ export async function releaseItem(itemId: string, userId: string): Promise<Relea
         success: false as const,
         reason: "not_your_claim" as const,
         currentHolder: item.claimedBy,
+        resolvedBy: null,
         itemStatus: item.status,
       };
     }
