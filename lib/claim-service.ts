@@ -128,65 +128,68 @@ export async function claimItem(itemId: string, userId: string): Promise<ClaimRe
 
 export async function releaseItem(itemId: string, userId: string): Promise<ReleaseResult> {
   const result = await prisma.$transaction(async (tx) => {
-    const item = await tx.item.findUnique({
-      where: { id: itemId },
-      select: {
-        id: true,
-        status: true,
-        claimedById: true,
-        claimedBy: { select: { id: true, name: true, email: true } },
-        resolvedBy: { select: { id: true, name: true, email: true } },
+    const updated = await tx.item.updateMany({
+      where: {
+        id: itemId,
+        status: ItemStatus.CLAIMED,
+        claimedById: userId,
       },
-    });
-
-    if (!item) {
-      return {
-        success: false as const,
-        reason: "not_claimed" as const,
-        currentHolder: null,
-        resolvedBy: null,
-        itemStatus: "unknown",
-      };
-    }
-
-    if (item.status === ItemStatus.RESOLVED) {
-      return {
-        success: false as const,
-        reason: "already_resolved" as const,
-        currentHolder: item.claimedBy,
-        resolvedBy: item.resolvedBy,
-        itemStatus: item.status,
-      };
-    }
-
-    if (item.status !== ItemStatus.CLAIMED) {
-      return {
-        success: false as const,
-        reason: "not_claimed" as const,
-        currentHolder: null,
-        resolvedBy: null,
-        itemStatus: item.status,
-      };
-    }
-
-    if (item.claimedById !== userId) {
-      return {
-        success: false as const,
-        reason: "not_your_claim" as const,
-        currentHolder: item.claimedBy,
-        resolvedBy: null,
-        itemStatus: item.status,
-      };
-    }
-
-    const updated = await tx.item.update({
-      where: { id: itemId },
       data: {
         status: ItemStatus.QUEUED,
         claimedById: null,
         claimedAt: null,
         claimExpiresAt: null,
       },
+    });
+
+    if (updated.count === 0) {
+      const item = await tx.item.findUnique({
+        where: { id: itemId },
+        select: {
+          id: true,
+          status: true,
+          claimedBy: { select: { id: true, name: true, email: true } },
+          resolvedBy: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      if (!item) {
+        return {
+          success: false as const,
+          reason: "not_claimed" as const,
+          currentHolder: null,
+          itemStatus: "unknown",
+        };
+      }
+
+      if (item.status === ItemStatus.RESOLVED) {
+        return {
+          success: false as const,
+          reason: "already_resolved" as const,
+          currentHolder: item.claimedBy,
+          itemStatus: item.status,
+        };
+      }
+
+      if (item.status !== ItemStatus.CLAIMED) {
+        return {
+          success: false as const,
+          reason: "not_claimed" as const,
+          currentHolder: null,
+          itemStatus: item.status,
+        };
+      }
+
+      return {
+        success: false as const,
+        reason: "not_your_claim" as const,
+        currentHolder: item.claimedBy,
+        itemStatus: item.status,
+      };
+    }
+
+    const released = await tx.item.findUniqueOrThrow({
+      where: { id: itemId },
       select: {
         id: true,
         title: true,
@@ -198,7 +201,7 @@ export async function releaseItem(itemId: string, userId: string): Promise<Relea
 
     return {
       success: true as const,
-      item: updated,
+      item: released,
     };
   });
 
