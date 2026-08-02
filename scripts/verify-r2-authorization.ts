@@ -78,8 +78,6 @@ async function main() {
     orderBy: { name: "asc" },
   })) as unknown as UserInfo[];
 
-  await db.$disconnect();
-
   const findUser = (name: string) => users.find((u) => u.name === name)!;
 
   const avery = findUser("Avery Chen");
@@ -101,13 +99,10 @@ async function main() {
   console.log(`${wsNames.get(engineeringId)}: ${engineeringId}`);
   console.log("");
 
-  const nsItem = await (async () => {
-    const a = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-    const d = new PrismaClient({ adapter: a });
-    const item = await d.item.findFirst({ where: { workspaceId: supportId, status: ItemStatus.QUEUED }, select: { id: true } });
-    await d.$disconnect();
-    return item;
-  })();
+  const nsItem = await db.item.findFirst({
+    where: { workspaceId: supportId, status: ItemStatus.QUEUED },
+    select: { id: true },
+  });
 
   if (!nsItem) {
     console.error("No QUEUED items found in support workspace");
@@ -158,15 +153,18 @@ async function main() {
 
   await api(`/api/items/${nsItemId}/release`, tokenAvery, "POST");
 
-  console.log("\n=== 9. Cross-workspace read returns 404 ===");
+  console.log("\n=== 9. Viewer CANNOT resolve item ===");
+  await api(`/api/items/${nsItemId}/claim`, tokenAvery, "POST");
+  const r9 = await api(`/api/items/${nsItemId}/resolve`, tokenCasey, "POST");
+  assert("Viewer resolve blocked", r9.status === 403, `got ${r9.status}`);
+  await api(`/api/items/${nsItemId}/release`, tokenAvery, "POST");
 
-  const billingItem = await (async () => {
-    const a = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-    const d = new PrismaClient({ adapter: a });
-    const item = await d.item.findFirst({ where: { workspaceId: billingId }, select: { id: true } });
-    await d.$disconnect();
-    return item;
-  })();
+  console.log("\n=== 11. Cross-workspace read returns 404 ===");
+
+  const billingItem = await db.item.findFirst({
+    where: { workspaceId: billingId },
+    select: { id: true },
+  });
 
   if (billingItem) {
     const billingReadOk = await api(`/api/items/${billingItem.id}`, tokenBlair);
@@ -181,14 +179,11 @@ async function main() {
     console.log("  ⚠️  Skipped — no billing items found");
   }
 
-  console.log("\n=== 10. Cross-workspace claim returns 404 ===");
-  const engineeringItem = await (async () => {
-    const a = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-    const d = new PrismaClient({ adapter: a });
-    const item = await d.item.findFirst({ where: { workspaceId: engineeringId, status: ItemStatus.QUEUED }, select: { id: true } });
-    await d.$disconnect();
-    return item;
-  })();
+  console.log("\n=== 12. Cross-workspace claim returns 404 ===");
+  const engineeringItem = await db.item.findFirst({
+    where: { workspaceId: engineeringId, status: ItemStatus.QUEUED },
+    select: { id: true },
+  });
 
   if (engineeringItem) {
     const crossWsClaim = await api(`/api/items/${engineeringItem.id}/claim`, tokenAvery, "POST");
@@ -197,7 +192,8 @@ async function main() {
     console.log("  ⚠️  Skipped — no engineering items found");
   }
 
-  console.log("");
+  await db.$disconnect();
+
   console.log("═══════════════════════════════════");
   if (failed === 0) {
     console.log(`✅ R2 VERIFICATION PASSED (${passed}/${passed + failed})`);

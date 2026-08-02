@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useTransition } from "react";
 import { selectSeededUser, signOut } from "@/app/actions";
 import type { CurrentUser } from "@/lib/auth";
 import { Button } from "@/components/button";
@@ -21,6 +24,8 @@ type UserSelectorProps = {
 };
 
 export function UserSelector({ users, currentUser }: UserSelectorProps) {
+  const [isPending, startTransition] = useTransition();
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -38,8 +43,8 @@ export function UserSelector({ users, currentUser }: UserSelectorProps) {
         </div>
 
         {currentUser ? (
-          <form action={signOut}>
-            <Button variant="secondary" size="sm" type="submit">
+          <form action={() => startTransition(() => signOut())}>
+            <Button variant="secondary" size="sm" type="submit" disabled={isPending}>
               Sign out
             </Button>
           </form>
@@ -63,13 +68,19 @@ export function UserSelector({ users, currentUser }: UserSelectorProps) {
         </div>
       ) : null}
 
-      <form action={selectSeededUser} className="mt-5 grid gap-3 md:grid-cols-[1fr_auto]">
+      <form
+        action={(formData: FormData) =>
+          startTransition(() => selectSeededUser(formData))
+        }
+        className="mt-5 grid gap-3 md:grid-cols-[1fr_auto]"
+      >
         <label className="grid gap-2 text-sm font-medium text-slate-700">
           User
           <select
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none ring-sky-500 focus:ring-2"
             defaultValue={currentUser?.id ?? ""}
             name="userId"
+            disabled={isPending}
             required
           >
             <option disabled value="">
@@ -84,7 +95,11 @@ export function UserSelector({ users, currentUser }: UserSelectorProps) {
             ))}
           </select>
         </label>
-        <Button type="submit" className="md:self-end">
+        <Button
+          type="submit"
+          className="md:self-end"
+          disabled={isPending}
+        >
           Use selected user
         </Button>
       </form>

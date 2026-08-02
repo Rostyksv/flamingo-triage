@@ -2,7 +2,6 @@ import { UserSelector } from "@/components/user-selector";
 import { QueueTable } from "@/components/queue-table";
 import { getCurrentUser, listSeededUsers } from "@/lib/auth";
 import { findWorkspaceItemsCursor } from "@/lib/items";
-import type { ItemRecord } from "@/lib/items";
 import { loadMoreItems } from "./actions";
 
 export const dynamic = "force-dynamic";

@@ -2,7 +2,7 @@
  * R3 Notification Verification Script
  *
  * Proves that:
- * 1. Resolve returns immediately (under ~200ms, does NOT wait for notify's ~1s)
+ * 1. Resolve returns before notification completes
  * 2. Item state becomes RESOLVED
  * 3. Notification attempt record is created as PENDING
  * 4. Explicit notification processing can be run
@@ -106,10 +106,9 @@ async function main() {
   console.log(`  Resolve response time: ${resolveDuration}ms`);
   assert("Resolve succeeds", resolve.status === 200, `got ${resolve.status}`);
   assert(
-    `Resolve returns fast (<2000ms, actual=${resolveDuration}ms) — does NOT wait for notify (which sleeps ~1000ms)`,
-    resolveDuration < 2000,
-    `took ${resolveDuration}ms`,
-  );
+      "Resolve returned before notification processing completed",
+      resolveDuration < 1000,
+  )
   assert(
     "Item status is RESOLVED",
     resolve.body.item?.status === "RESOLVED",
