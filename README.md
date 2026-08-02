@@ -34,6 +34,7 @@ Run all verifications: `npm run verify:all`
 | `DATABASE_URL` | Yes | Supabase Postgres pooled connection string (pgBouncer, port 6543) |
 | `DIRECT_URL` | For migrations | Direct connection (port 5432) if using Prisma migrate |
 | `AUTH_SECRET` | Yes | HMAC secret for seeded-login cookies (≥24 chars random) |
+| `CRON_SECRET` | Yes | Secret that protects the `/api/sweep/run` cron endpoint (≥24 chars random) |
 
 ## Database Setup
 
@@ -126,9 +127,9 @@ Also manually verified: paginating deep while another user claims/resolves earli
 
 Claims expire after 30 minutes (`claimExpiresAt`). Two mechanisms prevent orphaned claims:
 
-1. **Sweep endpoint** (`POST /api/sweep/run`): Releases all CLAIMED items where `claimExpiresAt < now` back to QUEUED. Designed to be called via Vercel Cron.
+1. **Sweep endpoint** (`POST /api/sweep/run`): Releases all CLAIMED items where `claimExpiresAt < now` back to QUEUED. Deployed via `vercel.json` cron (daily at midnight UTC). Protected by `CRON_SECRET` — Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}` automatically.
 2. **Atomic resolve gate** (`lib/resolve-service.ts`): The `updateMany` in `resolveItem` includes `claimExpiresAt: { gt: new Date() }` in its WHERE clause. This means a late resolve (claim already expired) is rejected atomically with `claim_expired`, even before the sweep cron runs.
-
+3. The sweep endpoint is intended to be triggered by Vercel Cron. On the Hobby plan it runs at most once per day; the atomic resolve gate still prevents expired claims from being resolved between sweeps.
 ```bash
 npm run verify:r5    # Proves sweep releases expired claims and late resolve is rejected
 ```
@@ -136,7 +137,7 @@ npm run verify:r5    # Proves sweep releases expired claims and late resolve is 
 ## Vercel Deployment Checklist
 
 1. Create a Vercel project linked to this repo
-2. Set env vars in Vercel dashboard: `DATABASE_URL`, `AUTH_SECRET`
+2. Set env vars in Vercel dashboard: `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`
 3. Run `npx prisma db push` locally or via Vercel CLI (`vercel env pull && npx prisma db push`)
 4. Run seed: `vercel env pull .env.production && npx tsx prisma/seed.ts` (seeds the shared DB)
 5. Deploy: `vercel --prod`

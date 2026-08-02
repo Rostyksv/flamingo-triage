@@ -30,8 +30,9 @@ async function api(
   path: string,
   token: string | null,
   method: "GET" | "POST" = "GET",
+  extraHeaders: Record<string, string> = {},
 ) {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...extraHeaders };
   if (token) headers["Cookie"] = `flamingo_session=${token}`;
   const res = await fetch(`${BASE_URL}${path}`, { method, headers });
   const body = await res.json();
@@ -67,8 +68,10 @@ async function main() {
   });
 
   // ── 1. Sweep endpoint exists ─────────────────────────────────────────
-  console.log("=== 1. Sweep endpoint ===");
-  const sweepRes = await api("/api/sweep/run", token, "POST");
+  console.log("=== 1. Sweep endpoint exists ===");
+  const sweepRes = await api("/api/sweep/run", token, "POST", {
+    Authorization: `Bearer ${process.env.CRON_SECRET}`,
+  });
   assert("Sweep endpoint exists and responds", sweepRes.status === 200,
     `got ${sweepRes.status}`);
   assert("Sweep returns released count", typeof sweepRes.body.released === "number");
@@ -107,7 +110,9 @@ async function main() {
   });
 
   // Run sweep
-  await api("/api/sweep/run", token, "POST");
+  await api("/api/sweep/run", token, "POST", {
+    Authorization: `Bearer ${process.env.CRON_SECRET}`,
+  });
 
   const expiredAfter = await db.item.findUniqueOrThrow({ where: { id: expiredItem.id } });
   const validAfter = await db.item.findUniqueOrThrow({ where: { id: validItem.id } });
