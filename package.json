@@ -16,7 +16,8 @@
     "verify:r3": "tsx scripts/verify-r3-notifications.ts",
     "verify:r5": "tsx scripts/verify-r5-sweep.ts",
     "verify:all": "npm run verify:r1 && npm run verify:r2 && npm run verify:r3 && npm run verify:r5",
-    "notifications:run": "tsx scripts/run-notifications.ts"
+    "notifications:run": "tsx scripts/run-notifications.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
