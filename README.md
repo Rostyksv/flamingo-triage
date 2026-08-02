@@ -1,12 +1,14 @@
 # Flamingo Triage Assignment
 
+**Live Demo:** https://flamingo-triage-sigma.vercel.app
+
 A Next.js 16 App Router full-stack shared triage queue where seeded users claim, release, and resolve items under concurrency and workspace authorization constraints.
 
 ## Quick Start
 
 ```bash
 cp .env.example .env
-# Fill in DATABASE_URL (Supabase Postgres pooled URL) and a random AUTH_SECRET
+# Fill in DATABASE_URL (Supabase Postgres pooled URL), AUTH_SECRET and CRON_SECRET
 
 npm install
 npm run db:setup        # push schema + seed 10k items
@@ -70,7 +72,7 @@ npm run lint         # ESLint
 
 ## Architecture Decisions
 
-See `.gsd/DECISIONS.md` for full rationale.
+See [DECISIONS.md](./DECISIONS.md) for full rationale.
 
 - **Atomic claim:** Prisma `$transaction` with conditional `updateMany WHERE status='QUEUED'`
 - **Authorization:** Centralized `lib/policy.ts` — every route checks workspace + role
@@ -134,12 +136,3 @@ Claims expire after 30 minutes (`claimExpiresAt`). Two mechanisms prevent orphan
 ```bash
 npm run verify:r5    # Proves sweep releases expired claims and late resolve is rejected
 ```
-
-## Vercel Deployment Checklist
-
-1. Create a Vercel project linked to this repo
-2. Set env vars in Vercel dashboard: `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`
-3. Run `npx prisma db push` locally or via Vercel CLI (`vercel env pull && npx prisma db push`)
-4. Run seed: `vercel env pull .env.production && npx tsx prisma/seed.ts` (seeds the shared DB)
-5. Deploy: `vercel --prod`
-6. Set live URL here: **`https://flamingo-triage-sigma.vercel.app`**
