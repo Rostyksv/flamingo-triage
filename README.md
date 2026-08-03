@@ -136,3 +136,7 @@ Claims expire after 30 minutes (`claimExpiresAt`). Two mechanisms prevent orphan
 ```bash
 npm run verify:r5    # Proves sweep releases expired claims and late resolve is rejected
 ```
+
+## Time Spent
+
+Approximately 2 working days (around 14-16 hours), including implementation, verification scripts, deployment, and documentation.
