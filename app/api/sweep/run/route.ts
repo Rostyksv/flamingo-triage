@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { sweepStaleClaims } from "@/lib/sweep-service";
 
 /**
- * POST /api/sweep/run
+ * GET /api/sweep/run (Vercel Cron)
+ * POST /api/sweep/run (manual / verification)
  *
  * Releases stale CLAIMED items (claimExpiresAt < now) back to QUEUED.
- * Protected by CRON_SECRET — Vercel Cron automatically sends
- * Authorization: Bearer ${CRON_SECRET} on scheduled invocations.
+ * Protected by CRON_SECRET.
  */
-export async function POST(request: NextRequest) {
+
+async function handleSweep(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
 
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -17,4 +18,12 @@ export async function POST(request: NextRequest) {
 
   const result = await sweepStaleClaims();
   return NextResponse.json(result);
+}
+
+export async function GET(request: NextRequest) {
+  return handleSweep(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleSweep(request);
 }
